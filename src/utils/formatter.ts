@@ -1,5 +1,27 @@
+const currencyFormatters = new Map<number, Intl.NumberFormat>();
+const compactNumberFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 2,
+});
+
+function getCurrencyFormatter(maximumFractionDigits: number): Intl.NumberFormat {
+  const existing = currencyFormatters.get(maximumFractionDigits);
+  if (existing) {
+    return existing;
+  }
+
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits,
+  });
+  currencyFormatters.set(maximumFractionDigits, formatter);
+  return formatter;
+}
+
 export function formatCurrency(value: number | null | undefined, maximumFractionDigits = 6): string {
-  if (value == null || Number.isNaN(value)) {
+  if (value == null || !Number.isFinite(value)) {
     return '--';
   }
 
@@ -8,27 +30,19 @@ export function formatCurrency(value: number | null | undefined, maximumFraction
     value >= 0.01 ? 4 :
     maximumFractionDigits;
 
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: digits,
-  }).format(value);
+  return getCurrencyFormatter(digits).format(value);
 }
 
 export function formatCompactNumber(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) {
+  if (value == null || !Number.isFinite(value)) {
     return '--';
   }
 
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  }).format(value);
+  return compactNumberFormatter.format(value);
 }
 
 export function formatPercentage(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) {
+  if (value == null || !Number.isFinite(value)) {
     return '--';
   }
 
@@ -36,7 +50,7 @@ export function formatPercentage(value: number | null | undefined): string {
 }
 
 export function formatRelativeUpdate(timestamp: number | null | undefined): string {
-  if (!timestamp) {
+  if (timestamp == null) {
     return 'Waiting for live data';
   }
 
