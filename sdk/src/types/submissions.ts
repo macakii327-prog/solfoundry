@@ -59,6 +59,7 @@ export interface Submission extends Timestamps {
 
 /**
  * Payload for creating a submission.
+ * Server-side validation requires at least one of `artifactUrl` or `content`.
  */
 export interface CreateSubmissionInput {
   /**
