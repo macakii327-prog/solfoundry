@@ -1,6 +1,7 @@
 {
   "name": "solfoundry-websocket",
   "private": true,
+  "type": "module",
   "version": "1.0.0",
   "workspaces": [
     "server",
@@ -11,7 +12,7 @@
     "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
     "dev": "concurrently \"npm run dev -w shared\" \"npm run dev -w server\" \"npm run dev -w client\"",
     "lint": "npm run lint -w server && npm run lint -w client",
-    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w client"
+    "typecheck": "npm run build -w shared && npm run typecheck -w server && npm run typecheck -w client"
   },
   "devDependencies": {
     "globals": "^15.15.0",

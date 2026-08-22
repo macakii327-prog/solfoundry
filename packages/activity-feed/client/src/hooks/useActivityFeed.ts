@@ -18,6 +18,7 @@ const POLLING_INTERVAL_MS = 10_000;
 const MAX_ITEMS = 100;
 
 interface UseActivityFeedOptions {
+  authToken?: string;
   endpoint: string;
   initialUserId: string;
 }
@@ -30,7 +31,7 @@ const mergeActivities = (current: ActivityEvent[], incoming: ActivityEvent[]): A
     .slice(0, MAX_ITEMS);
 };
 
-export function useActivityFeed({ endpoint, initialUserId }: UseActivityFeedOptions) {
+export function useActivityFeed({ authToken, endpoint, initialUserId }: UseActivityFeedOptions) {
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export function useActivityFeed({ endpoint, initialUserId }: UseActivityFeedOpti
       autoConnect: false,
       transports: ["websocket", "polling"],
       reconnection: false,
+      auth: authToken ? { token: authToken } : undefined,
       query: { userId: subscription.userId },
     });
     socketRef.current = socket;
@@ -140,7 +142,9 @@ export function useActivityFeed({ endpoint, initialUserId }: UseActivityFeedOpti
 
     socket.on(SOCKET_EVENTS.BATCH, (payload) => {
       setActivities((current) => mergeActivities(current, payload.activities));
-      if (payload.activities.length) {
+      if (payload.nextSince) {
+        latestSinceRef.current = payload.nextSince;
+      } else if (payload.activities.length) {
         const [firstActivity, ...remainingActivities] = payload.activities as ActivityEvent[];
         const newestActivity = remainingActivities.reduce(
           (latest: ActivityEvent, activity: ActivityEvent) =>

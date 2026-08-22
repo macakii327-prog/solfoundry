@@ -27,20 +27,24 @@ const SOCKET_RATE_LIMIT_WINDOW_MS = 10_000;
 const SOCKET_RATE_LIMIT_MAX = 25;
 const API_RATE_LIMIT_WINDOW_MS = 60_000;
 const API_RATE_LIMIT_MAX = 120;
+const INGEST_API_KEY = process.env.ACTIVITY_FEED_INGEST_API_KEY;
+const SOCKET_AUTH_TOKEN = process.env.ACTIVITY_FEED_SOCKET_TOKEN;
+const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+const safeIdSchema = z.string().trim().regex(SAFE_ID_PATTERN).max(64);
 
 const activitySchema = z.object({
   id: z.string().min(1).optional(),
   type: z.enum(ACTIVITY_TYPES),
   createdAt: z.string().datetime().optional(),
   actor: z.object({
-    id: z.string().min(1),
+    id: safeIdSchema,
     handle: z.string().min(1),
     displayName: z.string().min(1),
   }),
   metadata: z.object({
     title: z.string().min(1),
     message: z.string().min(1),
-    bountyId: z.string().min(1).optional(),
+    bountyId: safeIdSchema.optional(),
     bountyTitle: z.string().min(1).optional(),
     scoreDelta: z.number().optional(),
     submissionId: z.string().min(1).optional(),
@@ -50,11 +54,11 @@ const activitySchema = z.object({
 });
 
 const subscriptionSchema = z.object({
-  userId: z.string().min(1),
+  userId: safeIdSchema,
   filter: z.object({
     types: z.array(z.enum(ACTIVITY_TYPES)).default(defaultFilter.types),
-    userIds: z.array(z.string()).default([]),
-    bountyIds: z.array(z.string()).default([]),
+    userIds: z.array(safeIdSchema).default([]),
+    bountyIds: z.array(safeIdSchema).default([]),
   }),
   notifications: z.object({
     enabled: z.boolean().default(true),
@@ -142,6 +146,32 @@ const activityStore = new ActivityStore();
 const socketLimiter = new SlidingWindowLimiter(SOCKET_RATE_LIMIT_WINDOW_MS, SOCKET_RATE_LIMIT_MAX);
 const apiLimiter = new SlidingWindowLimiter(API_RATE_LIMIT_WINDOW_MS, API_RATE_LIMIT_MAX);
 const pendingActivities: ActivityEvent[] = [];
+
+const sanitizeRoomId = (value: unknown, fallback = "anonymous"): string => {
+  const candidate = String(value ?? "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  return candidate || fallback;
+};
+
+const isAuthorizedSocket = (socket: Socket<ClientToServerEvents, ServerToClientEvents>): boolean => {
+  if (!SOCKET_AUTH_TOKEN) {
+    return true;
+  }
+  return socket.handshake.auth?.token === SOCKET_AUTH_TOKEN;
+};
+
+const requireIngestApiKey: express.RequestHandler = (req, res, next) => {
+  if (!INGEST_API_KEY) {
+    next();
+    return;
+  }
+
+  if (req.header("x-api-key") !== INGEST_API_KEY) {
+    res.status(401).json({ message: "Missing or invalid API key" });
+    return;
+  }
+
+  next();
+};
 
 const app = express();
 app.set("trust proxy", true);
@@ -272,14 +302,20 @@ setInterval(() => {
 
   const batch = pendingActivities.splice(0, pendingActivities.length);
   const deliveredAt = new Date().toISOString();
-  io.to(roomName.all).emit(SOCKET_EVENTS.BATCH, { activities: batch, deliveredAt });
+  const nextSince = batch.reduce<string | null>((latest, activity) => {
+    if (!latest || Date.parse(activity.createdAt) > Date.parse(latest)) {
+      return activity.createdAt;
+    }
+    return latest;
+  }, null);
+  io.to(roomName.all).emit(SOCKET_EVENTS.BATCH, { activities: batch, deliveredAt, nextSince });
 
   for (const activity of batch) {
     let broadcaster = io.except(roomName.all).to(roomName.type(activity.type)).to(roomName.user(activity.actor.id));
     if (activity.metadata.bountyId) {
       broadcaster = broadcaster.to(roomName.bounty(activity.metadata.bountyId));
     }
-    broadcaster.emit(SOCKET_EVENTS.BATCH, { activities: [activity], deliveredAt });
+    broadcaster.emit(SOCKET_EVENTS.BATCH, { activities: [activity], deliveredAt, nextSince: activity.createdAt });
   }
 }, FLUSH_INTERVAL_MS);
 
@@ -313,7 +349,7 @@ app.get("/api/activities", (req, res) => {
   });
 });
 
-app.post("/api/activities", (req, res) => {
+app.post("/api/activities", requireIngestApiKey, (req, res) => {
   const parsed = activitySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ message: "Invalid activity payload", errors: parsed.error.flatten() });
@@ -331,8 +367,13 @@ app.post("/api/activities", (req, res) => {
 });
 
 io.on("connection", (socket) => {
-  const requestedUserId = socket.handshake.query.userId?.toString() ?? "anonymous";
-  const sanitizedUserId = requestedUserId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "anonymous";
+  if (!isAuthorizedSocket(socket)) {
+    socket.emit(SOCKET_EVENTS.ERROR, { message: "Unauthorized socket connection" });
+    socket.disconnect(true);
+    return;
+  }
+
+  const sanitizedUserId = sanitizeRoomId(socket.handshake.query.userId);
   const initialSubscription = defaultSubscription(sanitizedUserId);
   socket.data.subscription = initialSubscription;
   applySubscriptionRooms(socket, initialSubscription);
@@ -356,9 +397,19 @@ io.on("connection", (socket) => {
       return;
     }
 
-    socket.data.subscription = parsed.data;
-    applySubscriptionRooms(socket, parsed.data);
-    const response: PreferencesUpdatedPayload = { subscription: parsed.data };
+    const sanitizedSubscription: ActivitySubscription = {
+      ...parsed.data,
+      userId: sanitizedUserId,
+      filter: {
+        ...parsed.data.filter,
+        userIds: parsed.data.filter.userIds.map((userId) => sanitizeRoomId(userId)),
+        bountyIds: parsed.data.filter.bountyIds.map((bountyId) => sanitizeRoomId(bountyId, "bounty")),
+      },
+    };
+
+    socket.data.subscription = sanitizedSubscription;
+    applySubscriptionRooms(socket, sanitizedSubscription);
+    const response: PreferencesUpdatedPayload = { subscription: sanitizedSubscription };
     acknowledgement?.(response);
     socket.emit(SOCKET_EVENTS.PREFERENCES_UPDATED, response);
   });

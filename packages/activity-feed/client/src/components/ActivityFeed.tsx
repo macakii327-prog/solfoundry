@@ -3,6 +3,7 @@ import { ACTIVITY_TYPES, ActivityType } from "@solfoundry/activity-shared";
 import { useActivityFeed } from "../hooks/useActivityFeed";
 
 interface ActivityFeedProps {
+  authToken?: string;
   endpoint: string;
   initialUserId: string;
 }
@@ -16,7 +17,7 @@ const statusLabel: Record<string, string> = {
   error: "Error",
 };
 
-export function ActivityFeed({ endpoint, initialUserId }: ActivityFeedProps) {
+export function ActivityFeed({ authToken, endpoint, initialUserId }: ActivityFeedProps) {
   const {
     activities,
     error,
@@ -25,7 +26,7 @@ export function ActivityFeed({ endpoint, initialUserId }: ActivityFeedProps) {
     status,
     subscription,
     updateSubscription,
-  } = useActivityFeed({ endpoint, initialUserId });
+  } = useActivityFeed({ authToken, endpoint, initialUserId });
 
   const toggleType = (type: ActivityType) => {
     updateSubscription((current) => {

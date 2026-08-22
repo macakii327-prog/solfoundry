@@ -64,6 +64,7 @@ export interface ActivitySubscription {
 export interface ActivityBatchPayload {
   activities: ActivityEvent[];
   deliveredAt: string;
+  nextSince: string | null;
 }
 
 export interface ConnectedPayload {

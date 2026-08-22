@@ -10,6 +10,11 @@ The activity feed system exposes a Socket.io channel for live delivery and an HT
 - Transport preference: WebSocket first, polling enabled as a secondary Socket.io transport
 - Query parameters:
   - `userId`: used to seed the initial subscription identity
+- Optional authentication: set `ACTIVITY_FEED_SOCKET_TOKEN` on the server and
+  pass the same value as the Socket.io `auth.token` (the demo client reads
+  `VITE_WS_AUTH_TOKEN`). When configured, unauthenticated sockets are rejected.
+- Room identifiers are sanitized to alphanumerics, dashes, and underscores with
+  a 64-character cap before joining user or bounty rooms.
 
 ### Server events
 
@@ -62,6 +67,11 @@ GET /api/activities?since=2026-04-04T00:00:00.000Z&types=bounty_posted,submissio
 
 Queues a new activity for throttled broadcast.
 
+If `ACTIVITY_FEED_INGEST_API_KEY` is set, requests must include the same value
+in the `x-api-key` header. Production deployments should replace this demo
+shared-key gate with their existing JWT/session middleware and bind actor
+identity from the authenticated principal rather than trusting client input.
+
 Example:
 
 ```json
@@ -88,3 +98,7 @@ Example:
 - Broadcasts are throttled by `FLUSH_INTERVAL_MS`.
 - User subscriptions are translated into Socket.io rooms for type, actor, and bounty affinity.
 - Socket preference updates and HTTP ingestion are rate limited in-memory.
+- Authentication in this reference implementation is intentionally lightweight:
+  optional shared keys protect socket connections and event ingestion. Full
+  multi-tenant authorization should be enforced by the host application before
+  exposing arbitrary user rooms or accepting actor identities.

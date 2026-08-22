@@ -13,7 +13,7 @@
 ## Event flow
 
 1. Producers `POST /api/activities`.
-2. The server validates the payload, stores it in the bounded activity buffer, and places it in a throttled broadcast queue.
+2. The server rate-limits the request, optionally verifies `x-api-key` when `ACTIVITY_FEED_INGEST_API_KEY` is configured, validates the payload, stores it in the bounded activity buffer, and places it in a throttled broadcast queue.
 3. Every flush interval, the server emits activity batches to:
    - `feed:all`
    - type rooms
@@ -27,6 +27,9 @@
 - After the retry budget is exhausted, the client transitions to polling mode.
 - Manual retry allows the UI to reattempt live sync without a full reload.
 - Polling requests keep using the active filter so transport fallback preserves user intent.
+- Socket connections can be guarded with `ACTIVITY_FEED_SOCKET_TOKEN`; when set,
+  clients must send the matching Socket.io auth token before they can subscribe
+  to rooms.
 
 ## Operational constraints
 
@@ -34,3 +37,7 @@
 - Broadcasts are throttled to reduce fan-out pressure during bursts, but each node throttles independently in a multi-instance deployment.
 - Activity history is capped in memory and intended to be replaceable with Redis or a database-backed event log in a larger deployment.
 - For consistent delivery, abuse protection, and history across multiple nodes, centralize state with a shared store such as Redis or a durable event log, and pair it with a distributed rate limiter.
+- The built-in authentication hooks are shared-key guardrails for the reference
+  package, not a full identity system. Production deployments should inject
+  existing JWT/session validation, derive actor identity server-side, and enforce
+  authorization before joining user-specific rooms.
