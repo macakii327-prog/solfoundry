@@ -1,4 +1,4 @@
-import type { JsonObject, RateLimitState } from "./common.js";
+import type { RateLimitState } from "./common.js";
 
 /**
  * Supported authentication configuration.
@@ -106,11 +106,11 @@ export interface RequestOptions {
   /**
    * Query string parameters.
    */
-  query?: Record<string, string | number | boolean | undefined | null>;
+  query?: object;
   /**
    * JSON payload sent to the API.
    */
-  body?: JsonObject;
+  body?: unknown;
   /**
    * Additional per-request headers.
    */

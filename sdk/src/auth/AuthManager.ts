@@ -4,10 +4,10 @@ import type { AuthSession, SolFoundryAuthConfig } from "../types/index.js";
  * Manages runtime authentication state for the SDK.
  */
 export class AuthManager {
-  private accessToken?: string;
-  private refreshToken?: string;
-  private apiKey?: string;
-  private getAccessToken?: () => string | undefined | Promise<string | undefined>;
+  private accessToken: string | undefined;
+  private refreshToken: string | undefined;
+  private apiKey: string | undefined;
+  private getAccessToken: (() => string | undefined | Promise<string | undefined>) | undefined;
 
   public constructor(config: SolFoundryAuthConfig = {}) {
     this.accessToken = config.accessToken;

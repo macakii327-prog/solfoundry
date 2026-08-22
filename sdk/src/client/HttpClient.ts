@@ -30,7 +30,7 @@ export class HttpClient {
   private readonly retryConfig: Required<RetryConfig>;
   private readonly rateLimiter: RateLimiter;
   private readonly respectRetryAfter: boolean;
-  private readonly onResponse?: SolFoundryClientConfig["onResponse"];
+  private readonly onResponse: SolFoundryClientConfig["onResponse"] | undefined;
   private rateLimitState: RateLimitState = {};
 
   public constructor(
@@ -96,12 +96,17 @@ export class HttpClient {
           ...options.headers,
         };
 
-        const response = await this.fetchImpl(url, {
+        const requestInit: RequestInit = {
           method,
           headers,
-          body: options.body ? JSON.stringify(options.body) : undefined,
           signal: controller.signal,
-        });
+        };
+
+        if (options.body !== undefined) {
+          requestInit.body = JSON.stringify(options.body);
+        }
+
+        const response = await this.fetchImpl(url, requestInit);
         const rateLimitState = this.parseRateLimitState(response.headers);
         this.rateLimitState = rateLimitState;
         this.onResponse?.(response, this.getRateLimitState());
@@ -152,10 +157,7 @@ export class HttpClient {
     });
   }
 
-  private buildUrl(
-    path: string,
-    query?: Record<string, string | number | boolean | undefined | null>,
-  ): string {
+  private buildUrl(path: string, query?: object): string {
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const url = new URL(`${this.baseUrl}${normalizedPath}`);
 
@@ -201,12 +203,22 @@ export class HttpClient {
     const reset = this.parseOptionalNumber(headers.get("x-ratelimit-reset"));
     const retryAfterMs = this.parseRetryAfterMs(headers.get("retry-after"));
 
-    return {
-      limit,
-      remaining,
-      resetAt: reset !== undefined ? reset * 1_000 : undefined,
-      retryAfterMs,
-    };
+    const state: RateLimitState = {};
+
+    if (limit !== undefined) {
+      state.limit = limit;
+    }
+    if (remaining !== undefined) {
+      state.remaining = remaining;
+    }
+    if (reset !== undefined) {
+      state.resetAt = reset * 1_000;
+    }
+    if (retryAfterMs !== undefined) {
+      state.retryAfterMs = retryAfterMs;
+    }
+
+    return state;
   }
 
   private parseOptionalNumber(value: string | null): number | undefined {
@@ -270,11 +282,16 @@ export class HttpClient {
 
   private toApiProblem(payload: ApiProblem | JsonObject): ApiProblem | undefined {
     if (typeof payload.message === "string") {
-      return {
-        code: typeof payload.code === "string" ? payload.code : undefined,
-        message: payload.message,
-        details: this.isJsonObject(payload.details) ? payload.details : undefined,
-      };
+      const problem: ApiProblem = { message: payload.message };
+
+      if (typeof payload.code === "string") {
+        problem.code = payload.code;
+      }
+      if (this.isJsonObject(payload.details)) {
+        problem.details = payload.details;
+      }
+
+      return problem;
     }
 
     return undefined;
