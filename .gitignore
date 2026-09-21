@@ -86,3 +86,6 @@ data/
 *.sqlite
 *.db
 *.sqlite3
+# Generated Vite config declarations
+vite.config.d.ts
+vite.lib.config.d.ts

@@ -1,4 +1,8 @@
 const currencyFormatters = new Map<number, Intl.NumberFormat>();
+const compactNumberFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 2,
+});
 
 function getCurrencyFormatter(digits: number): Intl.NumberFormat {
   let formatter = currencyFormatters.get(digits);
@@ -17,27 +21,25 @@ function getCurrencyFormatter(digits: number): Intl.NumberFormat {
 }
 
 export function formatCurrency(value: number | null | undefined, maximumFractionDigits = 6): string {
-  if (value == null || Number.isNaN(value)) {
+  if (value == null || !Number.isFinite(value)) {
     return '--';
   }
 
+  const absoluteValue = Math.abs(value);
   const digits =
-    value >= 1 ? 2 :
-    value >= 0.01 ? 4 :
-    maximumFractionDigits;
+    absoluteValue >= 1 ? 2 :
+    absoluteValue >= 0.01 ? 4 :
+    Math.max(2, maximumFractionDigits);
 
   return getCurrencyFormatter(digits).format(value);
 }
 
 export function formatCompactNumber(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) {
+  if (value == null || !Number.isFinite(value)) {
     return '--';
   }
 
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 2,
-  }).format(value);
+  return compactNumberFormatter.format(value);
 }
 
 export function formatPercentage(value: number | null | undefined): string {
