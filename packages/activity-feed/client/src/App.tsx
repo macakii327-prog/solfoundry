@@ -1,8 +1,9 @@
 import { ActivityFeed } from "./components/ActivityFeed";
+import { resolveActivityEndpoint, resolveActivityUserId } from "./config";
 
 export function App() {
-  const endpoint = import.meta.env.VITE_WS_ENDPOINT || "http://localhost:4000";
-  const initialUserId = import.meta.env.VITE_ACTIVITY_USER_ID || "anonymous";
+  const endpoint = resolveActivityEndpoint();
+  const initialUserId = resolveActivityUserId();
   const authToken = import.meta.env.VITE_WS_AUTH_TOKEN;
 
   return (

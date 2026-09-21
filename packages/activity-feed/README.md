@@ -17,8 +17,11 @@ npm run build
 npm run dev
 ```
 
-Server defaults to `http://localhost:4000`.
-Client defaults to `http://localhost:5173`.
+Server defaults to port `4000`.
+Client defaults to port `5174` to avoid colliding with the main frontend.
+The client derives its activity endpoint from the current host and server port unless `VITE_WS_ENDPOINT` is set.
+
+For event ingestion, set `ACTIVITY_FEED_API_KEY` (or `ACTIVITY_FEED_INGEST_API_KEY`) and send it as `x-api-key` on `POST /api/activities`. Ingestion fails closed when no key is configured; local-only demos can opt out with `ACTIVITY_FEED_REQUIRE_API_KEY=false`.
 
 ## Key capabilities
 

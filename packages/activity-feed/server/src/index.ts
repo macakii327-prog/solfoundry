@@ -27,7 +27,8 @@ const SOCKET_RATE_LIMIT_WINDOW_MS = 10_000;
 const SOCKET_RATE_LIMIT_MAX = 25;
 const API_RATE_LIMIT_WINDOW_MS = 60_000;
 const API_RATE_LIMIT_MAX = 120;
-const INGEST_API_KEY = process.env.ACTIVITY_FEED_INGEST_API_KEY;
+const INGEST_API_KEY = process.env.ACTIVITY_FEED_API_KEY ?? process.env.ACTIVITY_FEED_INGEST_API_KEY;
+const REQUIRE_INGEST_API_KEY = process.env.ACTIVITY_FEED_REQUIRE_API_KEY !== "false";
 const SOCKET_AUTH_TOKEN = process.env.ACTIVITY_FEED_SOCKET_TOKEN;
 const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 const safeIdSchema = z.string().trim().regex(SAFE_ID_PATTERN).max(64);
@@ -161,6 +162,10 @@ const isAuthorizedSocket = (socket: Socket<ClientToServerEvents, ServerToClientE
 
 const requireIngestApiKey: express.RequestHandler = (req, res, next) => {
   if (!INGEST_API_KEY) {
+    if (REQUIRE_INGEST_API_KEY) {
+      res.status(503).json({ message: "Activity ingestion is disabled until ACTIVITY_FEED_API_KEY is configured" });
+      return;
+    }
     next();
     return;
   }

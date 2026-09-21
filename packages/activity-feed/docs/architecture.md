@@ -13,7 +13,7 @@
 ## Event flow
 
 1. Producers `POST /api/activities`.
-2. The server rate-limits the request, optionally verifies `x-api-key` when `ACTIVITY_FEED_INGEST_API_KEY` is configured, validates the payload, stores it in the bounded activity buffer, and places it in a throttled broadcast queue.
+2. The server rate-limits the request, verifies `x-api-key` against `ACTIVITY_FEED_API_KEY` (or `ACTIVITY_FEED_INGEST_API_KEY`), validates the payload, stores it in the bounded activity buffer, and places it in a throttled broadcast queue.
 3. Every flush interval, the server emits activity batches to:
    - `feed:all`
    - type rooms
@@ -38,6 +38,8 @@
 - Activity history is capped in memory and intended to be replaceable with Redis or a database-backed event log in a larger deployment.
 - For consistent delivery, abuse protection, and history across multiple nodes, centralize state with a shared store such as Redis or a durable event log, and pair it with a distributed rate limiter.
 - The built-in authentication hooks are shared-key guardrails for the reference
-  package, not a full identity system. Production deployments should inject
-  existing JWT/session validation, derive actor identity server-side, and enforce
-  authorization before joining user-specific rooms.
+  package, not a full identity system. Event ingestion fails closed unless an API
+  key is configured or the local-demo override is explicitly enabled. Production
+  deployments should inject existing JWT/session validation, derive actor
+  identity server-side, and enforce authorization before joining user-specific
+  rooms.
