@@ -105,7 +105,12 @@ class SlidingWindowLimiter {
   }
 }
 
-class ActivityStore {
+interface ActivityStore {
+  add(activity: ActivityEvent): void;
+  list(query: ActivityQuery): ActivityEvent[];
+}
+
+class InMemoryActivityStore implements ActivityStore {
   private readonly items: ActivityEvent[] = [];
 
   add(activity: ActivityEvent): void {
@@ -143,7 +148,7 @@ class ActivityStore {
   }
 }
 
-const activityStore = new ActivityStore();
+const activityStore: ActivityStore = new InMemoryActivityStore();
 const socketLimiter = new SlidingWindowLimiter(SOCKET_RATE_LIMIT_WINDOW_MS, SOCKET_RATE_LIMIT_MAX);
 const apiLimiter = new SlidingWindowLimiter(API_RATE_LIMIT_WINDOW_MS, API_RATE_LIMIT_MAX);
 const pendingActivities: ActivityEvent[] = [];

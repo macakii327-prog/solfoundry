@@ -35,7 +35,7 @@
 
 - HTTP event ingestion and socket preference updates are rate limited in memory, so limits apply per instance rather than globally across a cluster.
 - Broadcasts are throttled to reduce fan-out pressure during bursts, but each node throttles independently in a multi-instance deployment.
-- Activity history is capped in memory and intended to be replaceable with Redis or a database-backed event log in a larger deployment.
+- Activity history is currently provided by the `ActivityStore` interface's in-memory implementation and is capped per process. Swap this implementation for Redis, Postgres, or a durable event log before relying on restart-safe history or horizontal scaling.
 - For consistent delivery, abuse protection, and history across multiple nodes, centralize state with a shared store such as Redis or a durable event log, and pair it with a distributed rate limiter.
 - The built-in authentication hooks are shared-key guardrails for the reference
   package, not a full identity system. Event ingestion fails closed unless an API

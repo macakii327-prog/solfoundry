@@ -21,7 +21,7 @@ The activity feed system exposes a Socket.io channel for live delivery and an HT
 - `activity:connected`
   - Payload: `{ socketId, serverTime, mode }`
 - `activity:batch`
-  - Payload: `{ activities, deliveredAt }`
+  - Payload: `{ activities, deliveredAt, nextSince }`
 - `preferences:updated`
   - Payload: `{ subscription }`
 - `activity:error`
@@ -56,6 +56,9 @@ Query parameters:
 - `types`: comma-separated activity types.
 - `userIds`: comma-separated actor IDs.
 - `bountyIds`: comma-separated bounty IDs.
+
+The response includes `nextSince`, the server-selected cursor clients should use
+for the next polling request.
 
 Example:
 
