@@ -13,6 +13,9 @@ const DEFAULT_UPDATE_INTERVAL = 30_000;
 const DEFAULT_MAX_HISTORY = 20;
 const MIN_UPDATE_INTERVAL = 10_000;
 
+/**
+ * Selects the most liquid DexScreener pair for the requested chain.
+ */
 function getBestPair(pairs: DexScreenerPair[], chainId: string): DexScreenerPair | null {
   return [...pairs]
     .filter((pair) => pair.chainId === chainId && pair.priceUsd)
@@ -26,6 +29,9 @@ function getBestPair(pairs: DexScreenerPair[], chainId: string): DexScreenerPair
     })[0] ?? null;
 }
 
+/**
+ * Appends the latest price to the bounded sparkline history.
+ */
 function mergeHistory(history: PricePoint[], priceUsd: number, maxHistoryPoints: number): PricePoint[] {
   const nextPoint: PricePoint = {
     timestamp: Date.now(),
@@ -42,6 +48,9 @@ function mergeHistory(history: PricePoint[], priceUsd: number, maxHistoryPoints:
   return nextHistory.slice(-maxHistoryPoints);
 }
 
+/**
+ * Fetches DexScreener token pairs and normalizes non-array responses.
+ */
 async function fetchTokenPairs(
   chainId: string,
   tokenAddress: string,
@@ -68,6 +77,9 @@ async function fetchTokenPairs(
   return Array.isArray(payload) ? payload : [];
 }
 
+/**
+ * Polls DexScreener for FNDRY pricing and exposes widget-ready state.
+ */
 export function useFNDRYPrice(options: FNDRYPriceHookOptions = {}): FNDRYPriceHookResult {
   const {
     tokenAddress = DEFAULT_TOKEN_ADDRESS,

@@ -21,6 +21,9 @@ const themeClassMap = {
   dark: styles.dark,
 };
 
+/**
+ * Renders an embeddable FNDRY price card backed by live DexScreener data.
+ */
 export function FNDRYPriceWidget({
   size = 'medium',
   theme = 'light',

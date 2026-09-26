@@ -1,5 +1,8 @@
 import { FNDRYPriceWidget } from './components/FNDRYPriceWidget';
 
+/**
+ * Displays the demo page for all bundled FNDRY price widget sizes.
+ */
 function App() {
   return (
     <main className="demo-shell">

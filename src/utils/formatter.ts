@@ -4,6 +4,9 @@ const compactNumberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
+/**
+ * Returns a cached USD formatter for the requested decimal precision.
+ */
 function getCurrencyFormatter(digits: number): Intl.NumberFormat {
   let formatter = currencyFormatters.get(digits);
 
@@ -20,6 +23,9 @@ function getCurrencyFormatter(digits: number): Intl.NumberFormat {
   return formatter;
 }
 
+/**
+ * Formats token prices as USD while preserving extra precision for sub-cent values.
+ */
 export function formatCurrency(value: number | null | undefined, maximumFractionDigits = 6): string {
   if (value == null || !Number.isFinite(value)) {
     return '--';
@@ -34,6 +40,9 @@ export function formatCurrency(value: number | null | undefined, maximumFraction
   return getCurrencyFormatter(digits).format(value);
 }
 
+/**
+ * Formats large market values with compact notation for dashboard display.
+ */
 export function formatCompactNumber(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
     return '--';
@@ -42,6 +51,9 @@ export function formatCompactNumber(value: number | null | undefined): string {
   return compactNumberFormatter.format(value);
 }
 
+/**
+ * Formats a percentage change with an explicit positive sign.
+ */
 export function formatPercentage(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
     return '--';
@@ -50,6 +62,9 @@ export function formatPercentage(value: number | null | undefined): string {
   return `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
 }
 
+/**
+ * Describes how recently the live price data was refreshed.
+ */
 export function formatRelativeUpdate(timestamp: number | null | undefined): string {
   if (timestamp == null) {
     return 'Waiting for live data';
