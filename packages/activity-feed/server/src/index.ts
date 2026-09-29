@@ -20,7 +20,8 @@ import {
 } from "@solfoundry/activity-shared";
 
 const PORT = Number(process.env.PORT ?? 4000);
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
+const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5174";
+const TRUST_PROXY = process.env.ACTIVITY_FEED_TRUST_PROXY;
 const MAX_ACTIVITY_HISTORY = Number(process.env.MAX_ACTIVITY_HISTORY ?? 500);
 const FLUSH_INTERVAL_MS = Number(process.env.FLUSH_INTERVAL_MS ?? 500);
 const SOCKET_RATE_LIMIT_WINDOW_MS = 10_000;
@@ -158,6 +159,20 @@ const sanitizeRoomId = (value: unknown, fallback = "anonymous"): string => {
   return candidate || fallback;
 };
 
+const parseSafeIdList = (value: unknown): string[] | undefined => {
+  if (typeof value !== "string" || !value.length) {
+    return undefined;
+  }
+  const ids = value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => SAFE_ID_PATTERN.test(entry));
+  return ids.length ? ids : undefined;
+};
+
+const resolveClientKey = (req: express.Request): string | null =>
+  req.ip ?? req.socket.remoteAddress ?? null;
+
 const isAuthorizedSocket = (socket: Socket<ClientToServerEvents, ServerToClientEvents>): boolean => {
   if (!SOCKET_AUTH_TOKEN) {
     return true;
@@ -184,19 +199,18 @@ const requireIngestApiKey: express.RequestHandler = (req, res, next) => {
 };
 
 const app = express();
-app.set("trust proxy", true);
+if (TRUST_PROXY) {
+  app.set("trust proxy", TRUST_PROXY === "true" ? true : TRUST_PROXY === "false" ? false : TRUST_PROXY);
+}
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(express.json({ limit: "128kb" }));
 
 app.use((req, res, next) => {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  const realIp = req.headers["x-real-ip"];
-  const key =
-    req.ip ??
-    (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor?.split(",")[0]?.trim()) ??
-    (Array.isArray(realIp) ? realIp[0] : realIp) ??
-    req.socket.remoteAddress ??
-    "unknown";
+  const key = resolveClientKey(req);
+  if (!key) {
+    res.status(400).json({ message: "Unable to determine client identity" });
+    return;
+  }
   if (!apiLimiter.consume(key)) {
     res.status(429).json({ message: "API rate limit exceeded" });
     return;
@@ -341,14 +355,8 @@ app.get("/api/activities", (req, res) => {
       typeof req.query.types === "string"
         ? req.query.types.split(",").filter(isActivityType)
         : undefined,
-    userIds:
-      typeof req.query.userIds === "string" && req.query.userIds.length
-        ? req.query.userIds.split(",")
-        : undefined,
-    bountyIds:
-      typeof req.query.bountyIds === "string" && req.query.bountyIds.length
-        ? req.query.bountyIds.split(",")
-        : undefined,
+    userIds: parseSafeIdList(req.query.userIds),
+    bountyIds: parseSafeIdList(req.query.bountyIds),
   };
 
   const activities = activityStore.list(query);

@@ -102,7 +102,7 @@ Example:
 - Activities are stored in a bounded in-memory history buffer (`MAX_ACTIVITY_HISTORY`).
 - Broadcasts are throttled by `FLUSH_INTERVAL_MS`.
 - User subscriptions are translated into Socket.io rooms for type, actor, and bounty affinity.
-- Socket preference updates and HTTP ingestion are rate limited in-memory.
+- Socket preference updates and HTTP ingestion are rate limited in-memory. HTTP rate limiting keys use Express' client IP resolution and socket remote address; set `ACTIVITY_FEED_TRUST_PROXY` only for trusted reverse proxies.
 - Authentication in this reference implementation is intentionally lightweight:
   a required shared key protects event ingestion, and an optional shared key can
   protect socket connections. Full multi-tenant authorization should be enforced
