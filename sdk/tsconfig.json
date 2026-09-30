@@ -23,8 +23,6 @@
     "src/**/*.ts"
   ],
   "exclude": [
-    "src/**/__tests__/**",
-    "src/programs/**",
-    "src/solana.ts"
+    "src/**/__tests__/**"
   ]
 }
