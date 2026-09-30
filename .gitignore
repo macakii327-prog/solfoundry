@@ -81,6 +81,12 @@ src/**/*.d.ts.map
 !src/types/react-sparklines.d.ts
 !src/vite-env.d.ts
 
+# Price widget package declarations generated into the tracked dist artifact folder
+!dist/
+!dist/**/
+!dist/**/*.d.ts
+!dist/**/*.d.ts.map
+
 # Data
 data/
 *.sqlite
@@ -89,3 +95,5 @@ data/
 # Generated Vite config declarations
 vite.config.d.ts
 vite.lib.config.d.ts
+vite.config.js
+vite.lib.config.js

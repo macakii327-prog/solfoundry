@@ -12,7 +12,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/solfoundry-price-widget.js",
       "require": "./dist/solfoundry-price-widget.cjs"
-    }
+    },
+    "./style.css": "./dist/solfoundry-price-widget.css"
   },
   "files": [
     "dist"
@@ -20,9 +21,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:lib": "tsc -b && vite build --config vite.lib.config.ts",
+    "build:lib": "tsc -b && vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
     "preview": "vite preview",
-    "type-check": "tsc -b --noEmit",
+    "type-check": "tsc -b",
     "typecheck": "npm run type-check"
   },
   "peerDependencies": {
