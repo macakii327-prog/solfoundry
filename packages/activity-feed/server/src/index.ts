@@ -121,33 +121,52 @@ class InMemoryActivityStore implements ActivityStore {
     }
   }
 
+  /** Return retained activities using polling cursor semantics without skipping buffered events. */
   list(query: ActivityQuery): ActivityEvent[] {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
     const sinceEpoch = query.since ? Date.parse(query.since) : null;
-
-    return this.items
-      .filter((activity) => {
-        if (sinceEpoch && Date.parse(activity.createdAt) <= sinceEpoch) {
-          return false;
-        }
-        if (query.types?.length && !query.types.includes(activity.type)) {
-          return false;
-        }
-        if (query.userIds?.length && !query.userIds.includes(activity.actor.id)) {
-          return false;
-        }
-        if (query.bountyIds?.length) {
-          const bountyId = activity.metadata.bountyId;
-          if (!bountyId || !query.bountyIds.includes(bountyId)) {
-            return false;
-          }
-        }
-        return true;
-      })
-      .slice(0, limit)
-      .reverse();
+    const matches = this.items.filter((activity) => matchesActivityQuery(activity, query, sinceEpoch));
+    const page = sinceEpoch ? matches.slice(-limit) : matches.slice(0, limit);
+    return page.reverse();
   }
 }
+
+const matchesActivityQuery = (
+  activity: ActivityEvent,
+  query: ActivityQuery,
+  sinceEpoch: number | null = query.since ? Date.parse(query.since) : null
+): boolean => {
+  if (sinceEpoch && Date.parse(activity.createdAt) <= sinceEpoch) {
+    return false;
+  }
+  if (query.types?.length && !query.types.includes(activity.type)) {
+    return false;
+  }
+  if (query.userIds?.length && !query.userIds.includes(activity.actor.id)) {
+    return false;
+  }
+  if (query.bountyIds?.length) {
+    const bountyId = activity.metadata.bountyId;
+    if (!bountyId || !query.bountyIds.includes(bountyId)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const matchesSubscription = (activity: ActivityEvent, subscription?: ActivitySubscription): boolean => {
+  if (!subscription?.notifications.enabled) {
+    return false;
+  }
+  if (subscription.notifications.mutedTypes.includes(activity.type)) {
+    return false;
+  }
+  return matchesActivityQuery(activity, {
+    types: subscription.filter.types,
+    userIds: subscription.filter.userIds,
+    bountyIds: subscription.filter.bountyIds,
+  });
+};
 
 const activityStore: ActivityStore = new InMemoryActivityStore();
 const socketLimiter = new SlidingWindowLimiter(SOCKET_RATE_LIMIT_WINDOW_MS, SOCKET_RATE_LIMIT_MAX);
@@ -296,11 +315,11 @@ const applySubscriptionRooms = (
   }
   const { filter, notifications } = subscription;
   const activeTypes = filter.types.filter((type) => !notifications.mutedTypes.includes(type));
-  if (!activeTypes.length && filter.userIds.length === 0 && filter.bountyIds.length === 0) {
-    return;
-  }
   if (!filter.types.length && !filter.userIds.length && !filter.bountyIds.length && !notifications.mutedTypes.length) {
     socket.join(roomName.all);
+    return;
+  }
+  if (filter.types.length && !activeTypes.length) {
     return;
   }
   for (const type of activeTypes) {
@@ -332,14 +351,19 @@ setInterval(() => {
     }
     return latest;
   }, null);
-  io.to(roomName.all).emit(SOCKET_EVENTS.BATCH, { activities: batch, deliveredAt, nextSince });
-
-  for (const activity of batch) {
-    let broadcaster = io.except(roomName.all).to(roomName.type(activity.type)).to(roomName.user(activity.actor.id));
-    if (activity.metadata.bountyId) {
-      broadcaster = broadcaster.to(roomName.bounty(activity.metadata.bountyId));
+  for (const socket of io.sockets.sockets.values()) {
+    const subscription = socket.data.subscription as ActivitySubscription | undefined;
+    const activities = batch.filter((activity) => matchesSubscription(activity, subscription));
+    if (!activities.length) {
+      continue;
     }
-    broadcaster.emit(SOCKET_EVENTS.BATCH, { activities: [activity], deliveredAt, nextSince: activity.createdAt });
+    const socketNextSince = activities.reduce<string | null>((latest, activity) => {
+      if (!latest || Date.parse(activity.createdAt) > Date.parse(latest)) {
+        return activity.createdAt;
+      }
+      return latest;
+    }, null);
+    socket.emit(SOCKET_EVENTS.BATCH, { activities, deliveredAt, nextSince: socketNextSince ?? nextSince });
   }
 }, FLUSH_INTERVAL_MS);
 
@@ -377,7 +401,7 @@ app.post("/api/activities", requireIngestApiKey, (req, res) => {
   const activity: ActivityEvent = {
     ...parsed.data,
     id: parsed.data.id ?? crypto.randomUUID(),
-    createdAt: parsed.data.createdAt ?? new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   };
 
   queueActivity(activity);
