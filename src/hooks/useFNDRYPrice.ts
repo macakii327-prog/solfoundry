@@ -113,6 +113,8 @@ export function useFNDRYPrice(options: FNDRYPriceHookOptions = {}): FNDRYPriceHo
     setError(null);
     if (hasLoadedRef.current) {
       setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
     }
 
     try {
@@ -163,16 +165,29 @@ export function useFNDRYPrice(options: FNDRYPriceHookOptions = {}): FNDRYPriceHo
         void loadPrice();
       }, Math.min(effectiveInterval, 15_000));
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [chainId, clearRetryTimeout, effectiveInterval, maxHistoryPoints, tokenAddress]);
+
+  useEffect(() => {
+    setData(null);
+    setError(null);
+    setIsRefreshing(false);
+    hasLoadedRef.current = false;
+  }, [chainId, tokenAddress]);
 
   useEffect(() => {
     setIsLoading(true);
     void loadPrice();
 
     const intervalId = window.setInterval(() => {
+      if (abortControllerRef.current) {
+        return;
+      }
       void loadPrice();
     }, effectiveInterval);
 

@@ -12,7 +12,7 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['react', 'react-dom'],
+      external: [/^react($|\/)/, /^react-dom($|\/)/],
       output: {
         globals: {
           react: 'React',
