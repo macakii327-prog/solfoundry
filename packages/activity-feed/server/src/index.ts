@@ -126,8 +126,11 @@ class InMemoryActivityStore implements ActivityStore {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
     const sinceEpoch = query.since ? Date.parse(query.since) : null;
     const matches = this.items.filter((activity) => matchesActivityQuery(activity, query, sinceEpoch));
-    const page = sinceEpoch ? matches.slice(-limit) : matches.slice(0, limit);
-    return page.reverse();
+    if (!sinceEpoch) {
+      return matches.slice(0, limit);
+    }
+
+    return matches.slice(-limit);
   }
 }
 
@@ -387,7 +390,12 @@ app.get("/api/activities", (req, res) => {
   res.json({
     activities,
     serverTime: new Date().toISOString(),
-    nextSince: activities.length ? activities[activities.length - 1]?.createdAt ?? null : query.since ?? null,
+    nextSince: activities.reduce<string | null>((latest, activity) => {
+      if (!latest || Date.parse(activity.createdAt) > Date.parse(latest)) {
+        return activity.createdAt;
+      }
+      return latest;
+    }, query.since ?? null),
   });
 });
 
